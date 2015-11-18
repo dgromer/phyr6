@@ -1,6 +1,7 @@
 #' ECG class
 #'
 #' @docType class
+#' @importFrom dygraphs dygraph dyOptions
 #' @importFrom magrittr %>%
 #' @importFrom R6 R6Class
 #' @export
@@ -203,8 +204,8 @@ ECG <- R6Class("ECG",
     {
       if (private$has_ibi)
       {
-        dygraphs::dygraph(list(x = seq_along(self$ibi), y = self$ibi)) %>%
-          dygraphs::dyOptions(drawGrid = FALSE)
+        dygraph(list(x = seq_along(self$ibi), y = self$ibi)) %>%
+          dyOptions(drawGrid = FALSE)
       }
       else
       {
