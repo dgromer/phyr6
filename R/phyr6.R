@@ -1,6 +1,7 @@
 #' phyr6 base class
 #'
 #' @docType class
+#' @importFrom dygraphs dygraph
 #' @importFrom R6 R6Class
 #' @export
 #' @format An \code{\link{R6Class}} generator object
@@ -106,6 +107,19 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     segment_samples = function(from = 0, to = length(self$data), name)
     {
       private$create_segment(from, to, name)
+    },
+
+    #' plot_data
+    #'
+    plot_data = function(freq = 5)
+    {
+      # Downsample data for improved plotting performance
+      data <- resample_data(freq)
+
+      # Create dygraphs object
+      plot <- dygraph(list(x = seq_along(data) / freq, y = data))
+
+      plot
     }
 
   ),
