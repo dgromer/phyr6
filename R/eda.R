@@ -15,18 +15,18 @@ EDA <- R6Class("EDA",
 
     # Initialize ---------------------------------------------------------------
 
-    #' initialize
-    #'
-    #' @param data numeric vector containing the ECG signal
-    #' @param samplerate numeric indicating the samplerate of the signal in
-    #'   \code{data}.
-    #' @param marker numeric vector containing the markers for the signal. Must
-    #'   have the same length as \code{data}.
-    #' @param name character string indicating the name of the new object, e.g.
-    #'   the subject identifier.
-    #' @param path character string indicating the path where export and import
-    #'   functions.
-    #'
+    ## initialize
+    ##
+    ## @param data numeric vector containing the ECG signal
+    ## @param samplerate numeric indicating the samplerate of the signal in
+    ##   \code{data}.
+    ## @param marker numeric vector containing the markers for the signal. Must
+    ##   have the same length as \code{data}.
+    ## @param name character string indicating the name of the new object, e.g.
+    ##   the subject identifier.
+    ## @param path character string indicating the path where export and import
+    ##   functions.
+    ##
     initialize = function(data, samplerate, marker, name, path)
     {
       self$data <- data

@@ -2,7 +2,11 @@
 
 export(ECG)
 export(EDA)
-export(PHYR6_BASE)
+importFrom(PythonInR,pyCall)
+importFrom(PythonInR,pyConnect)
+importFrom(PythonInR,pyGet)
+importFrom(PythonInR,pyImport)
+importFrom(PythonInR,pyIsConnected)
 importFrom(R6,R6Class)
 importFrom(dygraphs,dyOptions)
 importFrom(dygraphs,dygraph)

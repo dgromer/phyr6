@@ -3,6 +3,7 @@
 #' @docType class
 #' @importFrom dygraphs dygraph dyOptions
 #' @importFrom magrittr %>%
+#' @importFrom PythonInR pyCall pyConnect pyGet pyImport pyIsConnected
 #' @importFrom R6 R6Class
 #' @export
 #' @format An \code{\link{R6Class}} generator object
@@ -16,26 +17,26 @@ ECG <- R6Class("ECG",
 
     # Public fields ------------------------------------------------------------
 
-    #' ibi
-    #'
-    #' Numeric vector for the sequence of interbeat intervals
-    #'
+    ## ibi
+    ##
+    ## Numeric vector for the sequence of interbeat intervals (in milliseconds)
+    ##
     ibi = NA,
 
     # Initialize ---------------------------------------------------------------
 
-    #' initialize
-    #'
-    #' @param data numeric vector containing the ECG signal
-    #' @param samplerate numeric indicating the samplerate of the signal in
-    #'   \code{data}.
-    #' @param marker numeric vector containing the markers for the signal. Must
-    #'   have the same length as \code{data}.
-    #' @param name character string indicating the name of the new object, e.g.
-    #'   the subject identifier.
-    #' @param path character string indicating the path where export and import
-    #'   functions.
-    #'
+    ## initialize
+    ##
+    ## @param data numeric vector containing the ECG signal
+    ## @param samplerate numeric indicating the samplerate of the signal in
+    ##   \code{data}.
+    ## @param marker numeric vector containing the markers for the signal. Must
+    ##   have the same length as \code{data}.
+    ## @param name character string indicating the name of the new object, e.g.
+    ##   the subject identifier.
+    ## @param path character string indicating the path where export and import
+    ##   functions.
+    ##
     initialize = function(data, samplerate, marker, name, path)
     {
       self$data <- data
@@ -45,27 +46,27 @@ ECG <- R6Class("ECG",
       if (!missing(path)) self$path <- path
     },
 
-    # Filtering -----------------------------------------------------------------
+    # Filtering ----------------------------------------------------------------
 
-    #' filter
-    #'
-    #' Apply a signal filter to the ECG signal, e.g. signal::butter()
-    #'
-    #' @param filt an object of class ARMA
-    #'
+    ## filter
+    ##
+    ## Apply a signal filter to the ECG signal, e.g. signal::butter()
+    ##
+    ## @param filt an object of class ARMA
+    ##
     filter = function(filt)
     {
       self$data <- as.numeric(signal::filter(filt, self$data))
       invisible(self)
     },
 
-    # Export / Import -----------------------------------------------------------
+    # Export / Import ----------------------------------------------------------
 
-    #' export_ecg
-    #'
-    #' Export the ECG signal to a text file with the name "'name'_ecg.txt" to
-    #' the path specified in 'path'
-    #'
+    ## export_ecg
+    ##
+    ## Export the ECG signal to a text file with the name "'name'_ecg.txt" to
+    ## the path specified in 'path'
+    ##
     export_ecg = function()
     {
       write.table(
@@ -75,13 +76,13 @@ ECG <- R6Class("ECG",
       )
     },
 
-    #' import_ibi
-    #'
-    #' Import interbeat intervals from text file
-    #'
-    #' @param file character string specifing the filename to read. Defaults to
-    #'   "'name'_ecg_ibi.txt" if argument is missing
-    #'
+    ## import_ibi
+    ##
+    ## Import interbeat intervals from text file
+    ##
+    ## @param file character string specifing the filename to read. Defaults to
+    ##   "'name'_ecg_ibi.txt" if argument is missing
+    ##
     import_ibi = function(file)
     {
       if (missing(file))
@@ -97,92 +98,112 @@ ECG <- R6Class("ECG",
       invisible(self)
     },
 
-    # HR / HRV Parameters -------------------------------------------------------
+    # HR / HRV Parameters ------------------------------------------------------
 
-    #' hr
-    #'
-    #' Calculate mean heart rate
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   heart rate for.
-    #'
+    ## hr
+    ##
+    ## Calculate mean heart rate
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   heart rate for.
+    ##
     hr = function(segment = NULL) { private$get_measure("hr", segment) },
 
-    #' nn50
-    #'
-    #' Calculate the number of successive interbeat intervals that differ by
-    #' more than 50 ms
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   nn50 for.
-    #'
+    ## nn50
+    ##
+    ## Calculate the number of successive interbeat intervals that differ by
+    ## more than 50 ms
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   nn50 for.
+    ##
     nn50 = function(segment = NULL) { private$get_measure("nn50", segment) },
 
-    #' pnn50
-    #'
-    #' Relative nn50 (as percent of total interbeat intervals)
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   pnn50 for.
-    #'
+    ## pnn50
+    ##
+    ## Relative nn50 (as percent of total interbeat intervals)
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   pnn50 for.
+    ##
     pnn50 = function(segment = NULL) { private$get_measure("pnn50", segment) },
 
-    #' nn20
-    #'
-    #' Calculate the number of successive interbeat intervalss that differ by
-    #' more than 20 ms
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   nn20 for.
-    #'
+    ## nn20
+    ##
+    ## Calculate the number of successive interbeat intervalss that differ by
+    ## more than 20 ms
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   nn20 for.
+    ##
     nn20 = function(segment = NULL) { private$get_measure("nn20", segment) },
 
-    #' pnn20
-    #'
-    #' Relative nn20 (as percent of total interbeat intervals)
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   pnn20 for.
-    #'
+    ## pnn20
+    ##
+    ## Relative nn20 (as percent of total interbeat intervals)
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   pnn20 for.
+    ##
     pnn20 = function(segment = NULL) { private$get_measure("pnn20", segment) },
 
-    #' sdnn
-    #'
-    #' Standard deviation of interbeat intervals
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   sdnn for.
-    #'
+    ## sdnn
+    ##
+    ## Standard deviation of interbeat intervals
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   sdnn for.
+    ##
     sdnn = function(segment = NULL) { private$get_measure("sdnn", segment) },
 
-    #' rmssd
-    #'
-    #' Root mean square of successive differences
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   rmssd for.
-    #'
+    ## rmssd
+    ##
+    ## Root mean square of successive differences
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   rmssd for.
+    ##
     rmssd = function(segment = NULL) { private$get_measure("rmssd", segment) },
 
-    #' sdsd
-    #'
-    #' Standard deviation of successive differences
-    #'
-    #' @param segment character string indicating the segment to report the
-    #'   sdsd for.
-    #'
+    ## sdsd
+    ##
+    ## Standard deviation of successive differences
+    ##
+    ## @param segment character string indicating the segment to report the
+    ##   sdsd for.
+    ##
     sdsd = function(segment = NULL) { private$get_measure("sdsd", segment) },
 
-    # Plots ---------------------------------------------------------------------
+    ## vlf
+    ##
+    ## Very low frequency bands
+    ##
+    ## TODO: Arguments for specifying band
+    ##
+    vlf = function(segment = NULL) { private$get_measure("vlf", segment) },
 
-    #' plot_ecg
-    #'
-    #' Plot the ECG signal using dygraphs.
-    #'
-    #' @param freq numeric indicating the frequency (in Hz) used to recode the
-    #'   sample. The lower the value, the higher the plotting perfomance but the
-    #'   lower the signal accuracy.
-    #'
+    ## lf
+    ##
+    ## Low frequency bands
+    ##
+    lf = function(segment = NULL) { private$get_measure("lf", segment) },
+
+    ## hf
+    ##
+    ## High frequency bands
+    ##
+    hf = function(segment = NULL) { private$get_measure("hf", segment) },
+
+    # Plots --------------------------------------------------------------------
+
+    ## plot_ecg
+    ##
+    ## Plot the ECG signal using dygraphs.
+    ##
+    ## @param freq numeric indicating the frequency (in Hz) used to recode the
+    ##   sample. The lower the value, the higher the plotting perfomance but the
+    ##   lower the signal accuracy.
+    ##
     plot_ecg = function(freq)
     {
       super$plot_data(freq)
@@ -195,10 +216,10 @@ ECG <- R6Class("ECG",
 #       dygraphs::dygraph(private$resample_data(freq))
 #     },
 
-    #' plot_ibi
-    #'
-    #' Plot the interbeat interval sequence using dygraphs.
-    #'
+    ## plot_ibi
+    ##
+    ## Plot the interbeat interval sequence using dygraphs.
+    ##
     plot_ibi = function()
     {
       if (private$has_ibi)
@@ -212,10 +233,10 @@ ECG <- R6Class("ECG",
       }
     },
 
-    # Print ---------------------------------------------------------------------
+    # Print --------------------------------------------------------------------
 
-    #' print
-    #'
+    ## print
+    ##
     print = function()
     {
       # Character representation of the time length of the signal
@@ -266,17 +287,23 @@ ECG <- R6Class("ECG",
 
   private = list(
 
-    #' has_ibi
-    #'
-    #' Logical indicating whether interbeat intervals are present or not
-    #'
+    ## has_ibi
+    ##
+    ## Logical indicating whether interbeat intervals are present or not
+    ##
     has_ibi = FALSE,
 
-    #' get_measure
-    #'
-    #' @param name character string
-    #' @param segment character string
-    #'
+    ## py_is_connected
+    ##
+    ## Logical indicating whether connection to Python is established
+    ##
+    py_is_connected = FALSE,
+
+    ## get_measure
+    ##
+    ## @param name character string
+    ## @param segment character string
+    ##
     get_measure = function(name, segment)
     {
       # Add underscore to function name, because all private parameter functions
@@ -321,7 +348,7 @@ ECG <- R6Class("ECG",
         }
         else
         {
-          private[[name]](private$subset_ibi(.x[1], .x[2]))
+          private[[name]](private$subset_ibi(.x$start, .x$end))
         }
 
       })
@@ -329,10 +356,10 @@ ECG <- R6Class("ECG",
 
     # HEART RATE
 
-    #' hr
-    #'
-    #' @param data numeric vector with sequence of interbeat intervals
-    #'
+    ## hr
+    ##
+    ## @param data numeric vector with sequence of interbeat intervals
+    ##
     hr_ = function(data) { 60000 / mean(data) },
 
     # HEART RATE VARIABILITY: TIME DOMAIN MEASURES
@@ -345,40 +372,90 @@ ECG <- R6Class("ECG",
     rmssd_ = function(data) { sqrt(mean(diff(data) ^ 2))         },
     sdsd_  = function(data) { sd(diff(data))                     },
 
-    #' subset_ibi
-    #'
-    #' @param from numeric indicating the start position of the subset in
-    #'   samples
-    #' @param to numeric indicating the end position of the sumbset in samples
-    #'
+    # HEART RATE VARIABILITY: FREQUENCY DOMAIN MEASURES
+
+    vlf_ = function()
+    {
+
+    },
+
+    lf_ = function()
+    {
+
+    },
+
+    hf_ = function()
+    {
+
+    },
+
+    # HELPER FUNCTIONS
+
+    ## subset_ibi
+    ##
+    ## @param from numeric indicating the start position of the subset in
+    ##   samples
+    ## @param to numeric indicating the end position of the sumbset in samples
+    ##
     subset_ibi = function(from, to)
     {
       from_ibi <- which(cumsum(self$ibi / 1000) > from / self$samplerate)[1]
       to_ibi   <- which(cumsum(self$ibi / 1000) > to   / self$samplerate)[1]
 
       self$ibi[from_ibi:to_ibi]
+    },
+
+    ## interpolate_ibi
+    ##
+    ## Since the series of interbeat intervals is an unevenly sampled signal,
+    ## it must be interpolated before computing frequency power bands using fft.
+    ##
+    interpolate_ibi = function(ibi, method = "linear", freq = 4)
+    {
+      # Sample times in seconds is needed for interpolation
+      x = cumsum(ibi) / 1000
+
+      approx(x, y = ibi, xout = seq(head(x, 1), tail(x, 1), 1 / freq),
+             method = method)$y
+    },
+
+    ## py_connect
+    ##
+    py_connect = function()
+    {
+      if (!pyIsConnected())
+      {
+        pyConnect()
+
+        pyImport(import = "signal", from = "scipy")
+        pyImport(import = "numpy", as = "np")
+
+        py_started <- TRUE
+      }
+    },
+
+    ## welch
+    ##
+    welch = function(x, fs, window = "hanning", nperseg = 256, noverlap = 128,
+                     nfft = 256, detrend = "linear", return_onesided = TRUE,
+                     scaling = "density")
+    {
+      # Ensure connection to Python is established
+      if (!private$py_is_connected) private$py_connect()
+
+      # Call scipy.signal.welch
+      wout <- pyCall("signal.welch", kwargs = list(
+        x = x, fs = fs, window = window, nperseg = nperseg, noverlap = noverlap,
+        nfft = nfft, detrend = detrend, return_onesided = return_onesided,
+        scaling = scaling
+      ))
+
+      # Get results
+      f <- pyGet(sprintf('list(__R__.namespace[%i])', wout[[1]]$id))
+      pxx <- pyGet(sprintf('list(__R__.namespace[%i])', wout[[2]]$id))
+
+      list(f = f, pxx = pxx)
     }
 
   )
 )
-
-# # Since the series of interbeat intervals is an unevenly sampled signal,
-# # it must be interpolated before computing frequency power bands using fft.
-# interp_ibi_ts = function(method = "linear", freq = 4, coerce = NULL)
-# {
-#   # Sample times in seconds is needed for interpolation
-#   x = cumsum(self$ibi) / 1000
-#
-#   interp_ibi <- approx(x, y = self$ibi,
-#                        xout = seq(head(x, 1), tail(x, 1), 1 / freq),
-#                        method = method)$y
-#
-#   if (!is.null(coerce))
-#   {
-#     do.call(as.character(coerce), list(x = interp_ibi))
-#   }
-#   else
-#   {
-#     interp_ibi
-#   }
-# }
