@@ -183,10 +183,17 @@ ECG <- R6Class("ECG",
     #'   sample. The lower the value, the higher the plotting perfomance but the
     #'   lower the signal accuracy.
     #'
-    plot_ecg = function(freq = 100)
+    plot_ecg = function(freq)
     {
-      dygraphs::dygraph(private$resample(freq))
+      super$plot_data(freq)
     },
+
+    plot_data = NULL,
+
+#     plot_ecg = function(freq = 100)
+#     {
+#       dygraphs::dygraph(private$resample_data(freq))
+#     },
 
     #' plot_ibi
     #'
