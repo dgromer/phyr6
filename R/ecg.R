@@ -46,20 +46,6 @@ ECG <- R6Class("ECG",
       if (!missing(path)) self$path <- path
     },
 
-    # Filtering ----------------------------------------------------------------
-
-    ## filter
-    ##
-    ## Apply a signal filter to the ECG signal, e.g. signal::butter()
-    ##
-    ## @param filt an object of class ARMA
-    ##
-    filter = function(filt)
-    {
-      self$data <- as.numeric(signal::filter(filt, self$data))
-      invisible(self)
-    },
-
     # Export / Import ----------------------------------------------------------
 
     ## export_ecg

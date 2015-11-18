@@ -3,6 +3,7 @@
 #' @docType class
 #' @importFrom dygraphs dygraph
 #' @importFrom R6 R6Class
+#' @importFrom signal filter
 #' @format An \code{\link{R6Class}} generator object
 #'
 PHYR6_BASE <- R6Class("PHYR6_BASE",
@@ -107,6 +108,22 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     {
       private$create_segment(from, to, name)
     },
+
+    # Filtering ----------------------------------------------------------------
+
+    ## filter
+    ##
+    ## Apply a signal filter to the ECG signal, e.g. signal::butter()
+    ##
+    ## @param filt an object of class ARMA
+    ##
+    filter = function(filt)
+    {
+      self$data <- as.numeric(signal::filter(filt, self$data))
+      invisible(self)
+    },
+
+    # Plotting -----------------------------------------------------------------
 
     ## plot_data
     ##
