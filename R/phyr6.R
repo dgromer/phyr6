@@ -5,7 +5,6 @@
 #' @importFrom R6 R6Class
 #' @export
 #' @format An \code{\link{R6Class}} generator object
-#' @keywords data
 #'
 PHYR6_BASE <- R6Class("PHYR6_BASE",
 

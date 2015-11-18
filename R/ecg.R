@@ -6,7 +6,6 @@
 #' @importFrom R6 R6Class
 #' @export
 #' @format An \code{\link{R6Class}} generator object
-#' @keywords data
 #'
 ECG <- R6Class("ECG",
 

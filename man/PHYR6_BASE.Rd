@@ -54,6 +54,8 @@ samples}
 \item{to}{numeric indicating the end position for the segment in samples}
 
 \item{name}{character string indicating the name for the segment
+plot_data
+
 segments
 
 List containing the specified segments (of class PHYR6_SEGMENTS)
