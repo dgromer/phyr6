@@ -1,8 +1,10 @@
 #' ECG class
 #'
 #' @docType class
+#' @importFrom dplyr filter
 #' @importFrom dygraphs dygraph dyOptions
 #' @importFrom magrittr %>%
+#' @importFrom pracma trapz
 #' @importFrom PythonInR pyCall pyConnect pyGet pyImport pyIsConnected
 #' @importFrom R6 R6Class
 #' @export
@@ -166,19 +168,28 @@ ECG <- R6Class("ECG",
     ##
     ## TODO: Arguments for specifying band
     ##
-    vlf = function(segment = NULL) { private$get_measure("vlf", segment) },
+    vlf = function(segment = NULL, lower = .0033, upper = .04)
+    {
+      private$get_measure("vlf", segment, lower = lower, upper = upper)
+    },
 
     ## lf
     ##
     ## Low frequency bands
     ##
-    lf = function(segment = NULL) { private$get_measure("lf", segment) },
+    lf = function(segment = NULL, lower = .04, upper = .15)
+    {
+      private$get_measure("lf", segment, lower = lower, upper = upper)
+    },
 
     ## hf
     ##
     ## High frequency bands
     ##
-    hf = function(segment = NULL) { private$get_measure("hf", segment) },
+    hf = function(segment = NULL, lower = .15, upper = .4)
+    {
+      private$get_measure("hf", segment, lower = lower, upper = upper)
+    },
 
     # Plots --------------------------------------------------------------------
 
@@ -290,7 +301,7 @@ ECG <- R6Class("ECG",
     ## @param name character string
     ## @param segment character string
     ##
-    get_measure = function(name, segment)
+    get_measure = function(name, segment, ...)
     {
       # Add underscore to function name, because all private parameter functions
       # end with one. This is later used to call the parameter function
@@ -334,7 +345,7 @@ ECG <- R6Class("ECG",
         }
         else
         {
-          private[[name]](private$subset_ibi(.x$start, .x$end))
+          private[[name]](private$subset_ibi(.x$start, .x$end), ...)
         }
 
       })
@@ -346,34 +357,23 @@ ECG <- R6Class("ECG",
     ##
     ## @param data numeric vector with sequence of interbeat intervals
     ##
-    hr_ = function(data) { 60000 / mean(data) },
+    hr_ = function(x) { 60000 / mean(x) },
 
     # HEART RATE VARIABILITY: TIME DOMAIN MEASURES
 
-    nn50_  = function(data) { sum(diff(data) > 50)               },
-    pnn50_ = function(data) { private$nn50_(data) / length(data) },
-    nn20_  = function(data) { sum(diff(data) > 20)               },
-    pnn20_ = function(data) { private$nn20_(data) / length(data) },
-    sdnn_  = function(data) { sd(data)                           },
-    rmssd_ = function(data) { sqrt(mean(diff(data) ^ 2))         },
-    sdsd_  = function(data) { sd(diff(data))                     },
+    nn50_  = function(x) { sum(diff(x) > 50)               },
+    pnn50_ = function(x) { private$nn50_(x) / length(x)    },
+    nn20_  = function(x) { sum(diff(x) > 20)               },
+    pnn20_ = function(x) { private$nn20_(x) / length(x)    },
+    sdnn_  = function(x) { sd(x)                           },
+    rmssd_ = function(x) { sqrt(mean(diff(x) ^ 2))         },
+    sdsd_  = function(x) { sd(diff(x))                     },
 
     # HEART RATE VARIABILITY: FREQUENCY DOMAIN MEASURES
 
-    vlf_ = function()
-    {
-
-    },
-
-    lf_ = function()
-    {
-
-    },
-
-    hf_ = function()
-    {
-
-    },
+    vlf_ = function(x, lower, upper) { private$psd(x, lower, upper) },
+    lf_  = function(x, lower, upper) { private$psd(x, lower, upper) },
+    hf_  = function(x, lower, upper) { private$psd(x, lower, upper) },
 
     # HELPER FUNCTIONS
 
@@ -422,6 +422,8 @@ ECG <- R6Class("ECG",
 
     ## welch
     ##
+    ## Estimate the power spectral density using Welch's method
+    ##
     welch = function(x, fs, window = "hanning", nperseg = 256, noverlap = 128,
                      nfft = 256, detrend = "linear", return_onesided = TRUE,
                      scaling = "density")
@@ -429,7 +431,7 @@ ECG <- R6Class("ECG",
       # Ensure connection to Python is established
       if (!private$py_is_connected) private$py_connect()
 
-      # Call scipy.signal.welch
+      # Call scipy.signal.welch from Python
       wout <- pyCall("signal.welch", kwargs = list(
         x = x, fs = fs, window = window, nperseg = nperseg, noverlap = noverlap,
         nfft = nfft, detrend = detrend, return_onesided = return_onesided,
@@ -440,7 +442,24 @@ ECG <- R6Class("ECG",
       f <- pyGet(sprintf('list(__R__.namespace[%i])', wout[[1]]$id))
       pxx <- pyGet(sprintf('list(__R__.namespace[%i])', wout[[2]]$id))
 
-      list(f = f, pxx = pxx)
+      data.frame(f = f, pxx = pxx)
+    },
+
+    ## psd
+    ##
+    psd = function(x, lower = NULL, upper = NULL)
+    {
+      # Calculates the power spectrum density from the interpolated series of
+      # interbeat intervals
+      spectrum <- private$welch(private$interpolate_ibi(x))
+
+      # Extract a specific power band if specified
+      if (!is.null(lower) && !is.null(upper))
+      {
+        spectrum <- dplyr::filter(spectrum, f >= lower, f <= upper)
+      }
+
+      trapz(spectrum$f, spectrum$pxx)
     }
 
   )

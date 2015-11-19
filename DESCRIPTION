@@ -8,9 +8,13 @@ BugReports: https://github.com/dgromer/phyr6/issues
 Depends:
     R (>= 3.2.2)
 Imports:
+    dplyr,
     dygraphs,
     magrittr,
-    R6
+    pracma,
+    PythonInR,
+    R6,
+    signal
 License: GPL (>= 2)
 LazyData: true
 RoxygenNote: 5.0.1

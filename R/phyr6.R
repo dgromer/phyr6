@@ -3,7 +3,6 @@
 #' @docType class
 #' @importFrom dygraphs dygraph
 #' @importFrom R6 R6Class
-#' @importFrom signal filter
 #' @format An \code{\link{R6Class}} generator object
 #'
 PHYR6_BASE <- R6Class("PHYR6_BASE",
