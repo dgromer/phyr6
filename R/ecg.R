@@ -1,5 +1,6 @@
 #' ECG class
 #'
+#' @useDynLib phyr6
 #' @docType class
 #' @importFrom dplyr filter
 #' @importFrom dygraphs dygraph dyOptions
@@ -57,11 +58,16 @@ ECG <- R6Class("ECG",
     ##
     export_ecg = function()
     {
-      write.table(
-        matrix(self$data),
-        file = paste0(getwd(), "/", self$path, "/", self$name, "_ecg.txt"),
-        row.names = FALSE, col.names = FALSE
-      )
+#       write.table(
+#         matrix(self$data),
+#         file = paste0(getwd(), "/", self$path, "/", self$name, "_ecg.txt"),
+#         row.names = FALSE, col.names = FALSE
+#       )
+
+      path <- normalizePath(paste0(getwd(), "/", self$path, "/", self$name,
+                                   "_ecg.txt"))
+
+      export_ecg_impl(self$data, path)
     },
 
     ## import_ibi
