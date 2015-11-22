@@ -3,6 +3,7 @@
 #' @docType class
 #' @importFrom dygraphs dygraph
 #' @importFrom R6 R6Class
+#' @importFrom signal butter
 #' @format An \code{\link{R6Class}} generator object
 #'
 PHYR6_BASE <- R6Class("PHYR6_BASE",
@@ -25,8 +26,8 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
 
     ## marker
     ##
-    ## Numeric vector with the same length as 'data' indicating the marker
-    ## positions
+    ## Data frame with columns "name" (character) and "position" (numeric)
+    ## indicating the name and the position (in samples) of markers
     ##
     marker = NA,
 
@@ -79,11 +80,25 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
         }
       }
 
-      # Get indizes of markers
-      from <- if (!is.null(from)) which(self$marker == from) else 0
-      to <- if(!is.null(to)) which(self$marker == to) else length(self$data)
+      # Get index/indizes of 'from' marker(s)
+      if (!is.null(from))
+      {
+        from <- self$marker[self$marker$name == from, "position"]
+      }
+      else
+      {
+        from <- 0
+      }
 
-      # TODO: check if markers appear one or more times
+      # Get index/indizes of 'to' marker(s)
+      if(!is.null(to))
+      {
+        to <- self$marker[self$marker$name == to, "position"]
+      }
+      else
+      {
+        to <- length(self$data)
+      }
 
       if (length(from) > 1 && length(to) > 1)
       {
@@ -122,6 +137,26 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       invisible(self)
     },
 
+    highpass_filter = function(freq, unit = c("hertz", "nyquist"), order = 2)
+    {
+      private$filter_template("high", freq, unit, order)
+    },
+
+    lowpass_filter = function(freq, unit = c("hertz", "nyquist"), order = 2)
+    {
+      private$filter_template("low", freq, unit, order)
+    },
+
+    bandpass_filter = function(freq, unit = c("hertz", "nyquist"), order = 2)
+    {
+      private$filter_template("pass", freq, unit, order)
+    },
+
+    bandstop_filter = function(freq, unit = c("hertz", "nyquist"), order = 2)
+    {
+      private$filter_template("stop", freq, unit, order)
+    },
+
     # Plotting -----------------------------------------------------------------
 
     ## plot_data
@@ -157,7 +192,7 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     find_marker = function(marker)
     {
-      !is.null(marker) && any(self$marker == marker)
+      !is.null(marker) && any(self$marker$name == marker)
     },
 
     ## error_marker
@@ -267,7 +302,22 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       n <- round(length(self$data) / self$samplerate * freq)
 
       approx(seq_along(self$data) / self$samplerate, self$data, n = n)
+    },
+
+    filter_template = function(type, freq, unit = c("hertz", "nyquist"), order)
+    {
+      unit <- match.arg(unit)
+
+      if (unit == "hertz")
+      {
+        # Divide the frequency in Hertz by the Nyquiest frequency
+        freq <- freq / (self$samplerate / 2)
+      }
+
+      self$filter(butter(order, private$filter_frequency(freq, unit),
+                         type = "high", plane = "z"))
     }
 
   )
+
 )

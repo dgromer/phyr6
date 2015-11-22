@@ -33,8 +33,9 @@ ECG <- R6Class("ECG",
     ## @param data numeric vector containing the ECG signal
     ## @param samplerate numeric indicating the samplerate of the signal in
     ##   \code{data}.
-    ## @param marker numeric vector containing the markers for the signal. Must
-    ##   have the same length as \code{data}.
+    ## @param marker data frame containing the markers for the signal. Column
+    ##   \code{name} contains names of the markers as character strings, column
+    ##   \code{position} contains the corresponding positions in samples.
     ## @param name character string indicating the name of the new object, e.g.
     ##   the subject identifier.
     ## @param path character string indicating the path where export and import
@@ -263,8 +264,8 @@ ECG <- R6Class("ECG",
       )
       if (length(self$marker) > 1)
       {
-        m <- unique(self$marker)
-        # Sequence of markers in 'marker' field
+        m <- unique(self$marker$name)
+        # Sequence of names of markers in 'marker' data frame
         cat(paste("\n  Markers:", paste(m[order(m)], collapse = ", ")))
       }
       if (length(self$ibi) > 1)
