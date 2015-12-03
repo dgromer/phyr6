@@ -4,6 +4,7 @@
 #' @docType class
 #' @importFrom dplyr filter
 #' @importFrom dygraphs dygraph dyOptions
+#' @importFrom lubridate duration
 #' @importFrom magrittr %>%
 #' @importFrom pracma trapz
 #' @importFrom PythonInR pyCall pyConnect pyGet pyImport pyIsConnected

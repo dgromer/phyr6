@@ -1,7 +1,7 @@
 #' phyr6 base class
 #'
 #' @docType class
-#' @importFrom dygraphs dyEvent dygraph dyOptions
+#' @importFrom dygraphs dyEvent dygraph dyOptions dyShading
 #' @importFrom magrittr %<>% %>%
 #' @importFrom R6 R6Class
 #' @importFrom signal butter
@@ -162,7 +162,7 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
 
     ## plot_data
     ##
-    plot_data = function(freq = 5)
+    plot_data = function(freq = 5, marker = TRUE, segments = TRUE)
     {
       # Downsample data for improved plotting performance
       data <- private$resample_data(freq)
@@ -170,13 +170,27 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       # Create dygraphs object
       plot <-
         dygraph(list(x = data$x, y = data$y)) %>%
-        dyOptions(drawGrid = FALSE)
+        dyOptions(colors = "#000000", drawGrid = FALSE)
 
-      # Add marker events
-      for (i in 1:nrow(self$marker))
+      # Add segments if requested
+      if (segments && !is.na(private$segments))
       {
-        plot %<>% dyEvent(self$marker[i, "position"] / self$samplerate,
-                          label = self$marker[i, "name"], color = "#888888")
+        for (i in seq_along(private$segments))
+        {
+          plot %<>% dyShading(private$segments[[i]]$start / self$samplerate,
+                              private$segments[[i]]$end / self$samplerate,
+                              color = "#D8E2EE")
+        }
+      }
+
+      # Add marker events if requested
+      if (marker && !is.na(self$marker))
+      {
+        for (i in 1:nrow(self$marker))
+        {
+          plot %<>% dyEvent(self$marker[i, "position"] / self$samplerate,
+                            label = self$marker[i, "name"], color = "#888888")
+        }
       }
 
       plot
@@ -251,15 +265,21 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     create_segment = function(from, to, name)
     {
-      self$segments[[name]] <- PHYR6_SEGMENT(from, to, name)
+      # If 'from' has more than on element, pick the first one
+      if (length(from) > 1) from <- from[1]
+      # If 'to' has more than on element, pick the first one occuring after
+      # 'from'
+      if (length(to) > 1) to <- to[which(to > from)][1]
+
+      private$segments[[name]] <- PHYR6_SEGMENT(from, to, name)
     },
 
     ## create_segments
     ##
     ## Creates multiple segments
     ##
-    ## @param from numeric vector
-    ## @param to numeric vector
+    ## @param from numeric vector. Positions of "from" markers (in samples)
+    ## @param to numeric vector. Positions of "to" markers (in samples)
     ## @param name character string indicating the base name of the segments.
     ##   Segments will be named by "name_1", "name_2", ...
     ##
@@ -272,14 +292,14 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       }
 
       # Counter variables
-      k <- length(from)
-      i <- 0
-      j <- 0
+      i <- 1 # Walks through 'from' vector
+      j <- 1 # Walks through 'to' vector
+      n <- 1 # Number of segments created
 
-      while (k < length(from))
+      while (i <= length(from))
       {
         # Check if next "from" marker is before next "to" marker
-        if (from[i] < to[j])
+        if (from[i] > to[j])
         {
           # Increase i and repeat
           i <- i + 1
@@ -287,16 +307,16 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
         }
 
         # Add segment
-        self$segments[[paste(name, k, sep = "_")]] <-
-          PHYR6_SEGMENT(from[i], to[j], paste(name, k, sep = "_"))
+        private$segments[[paste(name, n, sep = "_")]] <-
+          PHYR6_SEGMENT(from[i], to[j], paste(name, n, sep = "_"))
 
         # Increase counters
         i <- i + 1
         j <- j + 1
-        k <- k + 1
+        n <- n + 1
       }
 
-      message(paste(k - 1), "segments created")
+      message(paste(n - 1, "segments created"))
     },
 
     ## resample_data
