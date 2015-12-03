@@ -1,7 +1,8 @@
 #' phyr6 base class
 #'
 #' @docType class
-#' @importFrom dygraphs dygraph
+#' @importFrom dygraphs dyEvent dygraph dyOptions
+#' @importFrom magrittr %<>% %>%
 #' @importFrom R6 R6Class
 #' @importFrom signal butter
 #' @format An \code{\link{R6Class}} generator object
@@ -164,10 +165,19 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     plot_data = function(freq = 5)
     {
       # Downsample data for improved plotting performance
-      data <- resample_data(freq)
+      data <- private$resample_data(freq)
 
       # Create dygraphs object
-      plot <- dygraph(list(x = seq_along(data) / freq, y = data))
+      plot <-
+        dygraph(list(x = data$x, y = data$y)) %>%
+        dyOptions(drawGrid = FALSE)
+
+      # Add marker events
+      for (i in 1:nrow(self$marker))
+      {
+        plot %<>% dyEvent(self$marker[i, "position"] / self$samplerate,
+                          label = self$marker[i, "name"], color = "#888888")
+      }
 
       plot
     }
