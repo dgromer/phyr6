@@ -35,31 +35,58 @@ EDA <- R6Class("EDA",
       if (!missing(marker)) self$marker <- marker
       if (!missing(name)) self$name <- name
       if (!missing(path)) self$path <- path
+
+      # Ensure that self$marker is of class data.frame only so we can use
+      # `[` instead of `[.data.frame` to extract a single value
+      if (inherits(self$marker, "tbl_df")) class(self$marker) <- "data.frame"
     },
 
-    scr = function(segment = NULL, aggregate = TRUE, method = "start-to-max")
+    ## scr
+    ##
+    ## Calculate the skin conductance response to a stimulus
+    ##
+    ## @param segment character string indicating the segment(s) to calculate
+    ##   the SCR for.
+    ## @param aggregate logical. If the measure is calculated for multiple
+    ##   segments, should the results be aggregated to the mean or returned
+    ##   as a vector.
+    ## @param method character string indicating the method used to calculate
+    ##   the SCR.
+    ## @param latency numeric specifying the amout of time (in ms) to shift the
+    ##   beginning of the segment. If the beginning of the segment is the
+    ##   stimulus onset, then the foot of the SCR is typically 1-3 second later.
+    ##
+    scr = function(segment = NULL, aggregate = TRUE, method = "start-to-max",
+                   latency = 0)
     {
-      private$get_measure("scr", segment, aggregate, method = method)
+      private$get_measure("scr", segment, aggregate, method = method,
+                          latency = latency)
     },
 
+    ## scl
+    ##
+    ## Calculate the skin conductance level
+    ##
+    ## @param segment character string indicating the segment(s) to calculate
+    ##   the SCR for.
+    ## @param aggregate logical. If the measure is calculated for multiple
+    ##   segments, should the results be aggregated to the mean or returned
+    ##   as a vector.
+    ##
     scl = function(segment = NULL, aggregate = TRUE)
     {
-      private$get_measure("scl", segment, aggregate, method = method)
+      private$get_measure("scl", segment, aggregate)
     },
 
     # Print --------------------------------------------------------------------
 
     ## print
     ##
-    print = function()
+    ## @param marker logical. Print information about marker?
+    ## @param segments logical. Print information about segments?
+    ##
+    print = function(marker = TRUE, segments = TRUE)
     {
-      # Character representation of the time length of the signal
-      time <-
-        (length(self$data) / self$samplerate) %>%
-        round(2) %>%
-        lubridate::duration() %>%
-        as.character()
-
       cat(
         # Class name
         "<EDA>",
@@ -70,13 +97,28 @@ EDA <- R6Class("EDA",
         # Length of the signal in samples
         "\n  Length:", length(self$data), "samples",
         # Length of the signal (hh:mm:ss)
-        "\n         ", time
+        "\n         ", private$samples_to_string(length(self$data))
       )
-      if (length(self$marker) > 1)
+
+      if (marker && !is.na(self$marker))
       {
         m <- unique(self$marker$name)
         # Sequence of names of markers in 'marker' data frame
         cat(paste("\n  Markers:", paste(m[order(m)], collapse = ", ")))
+      }
+
+      if (segments && length(private$segments) > 0)
+      {
+        cat("\n  Segments:")
+
+        for (i in seq_along(private$segments))
+        {
+          x <- private$segments[[i]]
+
+          cat("\n    ", x$name, " @ ", private$samples_to_hms(x$start),
+              ", length: ", private$samples_to_string(x$end - x$start),
+              sep = "")
+        }
       }
     }
 
@@ -142,14 +184,34 @@ EDA <- R6Class("EDA",
       if (aggregate) mean(measure) else measure
     },
 
-    scr_ = function(x, method)
+    ## scr_
+    ##
+    scr_ = function(x, method, latency)
     {
+      if (latency > 0)
+      {
+        x <- x[(latency / 1000 * self$samplerate):length(x)]
+      }
+      else if (latency < 0)
+      {
+        stop("Negative values for argument 'latency' are not allowed")
+      }
+
       if (method == "start-to-max")
       {
+        # Difference between the first element in 'x' and the maximum of 'x'
         max(x) - x[1]
+      }
+      else if (method == "foot-to-max")
+      {
+        # Difference between the minimum in the first two seconds in 'x' and
+        # the maximum of 'x'
+        max(x) - x[min(x[seq_len(2 * self$samplerate)])]
       }
     },
 
+    ## scl_
+    ##
     scl_ = function(x)
     {
       mean(x)

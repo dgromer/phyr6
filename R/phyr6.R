@@ -1,6 +1,7 @@
 #' phyr6 base class
 #'
 #' @docType class
+#' @importFrom dplyr bind_rows data_frame
 #' @importFrom dygraphs dyEvent dygraph dyOptions dyShading
 #' @importFrom magrittr %<>% %>%
 #' @importFrom R6 R6Class
@@ -84,17 +85,19 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       # Get index/indizes of 'from' marker(s)
       if (!is.null(from))
       {
-        from <- self$marker[self$marker$name == from, "position"]
+        #from <- self$marker[self$marker$name == from, "position"]
+        from <- self$marker %>% `[.data.frame`(.$name == from, "position")
       }
       else
       {
-        from <- 0
+        from <- 1
       }
 
       # Get index/indizes of 'to' marker(s)
       if(!is.null(to))
       {
-        to <- self$marker[self$marker$name == to, "position"]
+        #to <- self$marker[self$marker$name == to, "position"]
+        to <- self$marker %>% `[.data.frame`(.$name == to, "position")
       }
       else
       {
@@ -122,6 +125,31 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     segment_samples = function(from = 0, to = length(self$data), name)
     {
       private$create_segment(from, to, name)
+    },
+
+    add_marker = function(name, position)
+    {
+      self$marker %<>% bind_rows(data_frame(name = name, position = position))
+    },
+
+    delete_marker = function(x)
+    {
+      for(i in seq_along(x))
+      {
+        self$marker %<>% filter(name != x[i])
+      }
+    },
+
+    extract = function(segment)
+    {
+      if (!private$find_segment(segment))
+      {
+        stop(paste("Segment", segment, "not found"))
+      }
+
+      segment <- private$segments[[segment]]
+
+      self$data[segment$start:segment$end]
     },
 
     # Filtering ----------------------------------------------------------------
@@ -162,6 +190,13 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
 
     ## plot_data
     ##
+    ## Plot the 'data' field using the dygraphs package.
+    ##
+    ## @param freq numeric indicating the sample frequency (in Hertz) of the
+    ##   signal to be plotted.
+    ## @param marker logical. Plot markers?
+    ## @param segments logical. Plot segments?
+    ##
     plot_data = function(freq = 5, marker = TRUE, segments = TRUE)
     {
       # Downsample data for improved plotting performance
@@ -173,24 +208,15 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
         dyOptions(colors = "#000000", drawGrid = FALSE)
 
       # Add segments if requested
-      if (segments && !is.na(private$segments))
+      if (segments && length(private$segments) != 0)
       {
-        for (i in seq_along(private$segments))
-        {
-          plot %<>% dyShading(private$segments[[i]]$start / self$samplerate,
-                              private$segments[[i]]$end / self$samplerate,
-                              color = "#D8E2EE")
-        }
+        plot %<>% private$plot_add_segments()
       }
 
       # Add marker events if requested
       if (marker && !is.na(self$marker))
       {
-        for (i in 1:nrow(self$marker))
-        {
-          plot %<>% dyEvent(self$marker[i, "position"] / self$samplerate,
-                            label = self$marker[i, "name"], color = "#888888")
-        }
+        plot %<>% private$plot_add_marker()
       }
 
       plot
@@ -227,7 +253,8 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     error_marker = function(marker)
     {
-      stop(paste("Could not find marker", marker), call. = FALSE)
+      stop(paste(if (!is.na(self$name)) sprintf("%s:", self$name),
+                 "Could not find marker", marker), call. = FALSE)
     },
 
     ## find_segment
@@ -241,7 +268,7 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     find_segment = function(name)
     {
-      name %in% names(self$segments)
+      name %in% names(private$segments)
     },
 
     ## error_segment
@@ -252,7 +279,8 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     error_segment = function(name)
     {
-      stop(paste("Segment", name, "already exists"))
+      stop(paste(if (!is.na(self$name)) sprintf("%s:", self$name), "Segment",
+                 name, "already exists"), call. = FALSE)
     },
 
     ## create_segment
@@ -316,7 +344,8 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
         n <- n + 1
       }
 
-      message(paste(n - 1, "segments created"))
+      message(paste(if(!is.na(self$name)) sprintf("%s:", self$name), n - 1,
+                    "segments created"))
     },
 
     ## resample_data
@@ -334,9 +363,32 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       approx(seq_along(self$data) / self$samplerate, self$data, n = n)
     },
 
+    ## filter_template
+    ##
+    ## Apply a butterworth filter to the 'data' field
+    ##
+    ## @param type character string indicating the type of the butterworth
+    ##   filter. One of "low", "high", "pass" or "stop"
+    ## @param freq numeric. The critical frequencies of the filter. Can be
+    ##   either in Hertz if argument unit is "hertz" or relative to the nyquist
+    ##   frequency if argument unit is "nyquist".
+    ## @param unit character string indicating the unit for argument 'freq'.
+    ##   Either "hertz" or "nyquist"
+    ## @param order numeric indicating the filter order of the butterworth
+    ##   filter
+    ##
     filter_template = function(type, freq, unit = c("hertz", "nyquist"), order)
     {
       unit <- match.arg(unit)
+
+      if (type == "low" || type == "high" && length(freq) != 1)
+      {
+        stop("Argument 'freq' must be of length one", call. = FALSE)
+      }
+      else if (type == "stop" || type == "pass" && length(freq != 2))
+      {
+        stop("Argument 'freq' must be of length two")
+      }
 
       if (unit == "hertz")
       {
@@ -344,9 +396,58 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
         freq <- freq / (self$samplerate / 2)
       }
 
-      self$filter(butter(order, private$filter_frequency(freq, unit),
-                         type = "high", plane = "z"))
+      self$filter(butter(order, freq, type = type, plane = "z"))
+    },
+
+    ## plot_add_marker
+    ##
+    ## Display markers in a dygraphs plot
+    ##
+    ## @param plot dygraph to add marker to
+    ##
+    plot_add_marker = function(plot)
+    {
+      for (i in 1:nrow(self$marker))
+      {
+        plot %<>% dyEvent(self$marker[i, "position"] / self$samplerate,
+                          label = self$marker[i, "name"], color = "#888888")
+      }
+
+      plot
+    },
+
+    ## plot_add_segments
+    ##
+    ## Display segments in a dygraphs plot
+    ##
+    ## @param plot dygraph to add segments to
+    ##
+    plot_add_segments = function(plot)
+    {
+      for (i in seq_along(private$segments))
+      {
+        plot %<>% dyShading(private$segments[[i]]$start / self$samplerate,
+                            private$segments[[i]]$end / self$samplerate,
+                            color = "#D8E2EE")
+      }
+
+      plot
+    },
+
+    samples_to_string = function(x)
+    {
+        (x / self$samplerate) %>%
+        round(2) %>%
+        lubridate::duration() %>%
+        as.character()
+    },
+
+    samples_to_hms = function(x)
+    {
+      format(as.POSIXct('0001-01-01 00:00:00') + x / self$samplerate,
+             "%H:%M:%S")
     }
+
 
   )
 

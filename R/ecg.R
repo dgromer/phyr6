@@ -60,12 +60,7 @@ ECG <- R6Class("ECG",
     ##
     export_ecg = function()
     {
-#       write.table(
-#         matrix(self$data),
-#         file = paste0(getwd(), "/", self$path, "/", self$name, "_ecg.txt"),
-#         row.names = FALSE, col.names = FALSE
-#       )
-
+      # TODO: returns warning if file does not exist. Needed?
       path <- normalizePath(paste0(getwd(), "/", self$path, "/", self$name,
                                    "_ecg.txt"))
 
@@ -81,6 +76,7 @@ ECG <- R6Class("ECG",
     ##
     import_ibi = function(file)
     {
+      # If no filename was specified, use default one
       if (missing(file))
       {
         filename <- paste0(getwd(), "/", self$path, "/", self$name,
@@ -90,6 +86,9 @@ ECG <- R6Class("ECG",
       self$ibi <- scan(filename, what = numeric(), sep = "\n", quiet = TRUE)
 
       private$has_ibi <- TRUE
+
+      private$hr_interpolated <-
+        private$interpolate_ibi(self$ibi, freq = self$samplerate)
 
       invisible(self)
     },
@@ -209,17 +208,40 @@ ECG <- R6Class("ECG",
     ##   sample. The lower the value, the higher the plotting perfomance but the
     ##   lower the signal accuracy.
     ##
-    plot_ecg = function(freq)
+    plot_ecg = function(freq = 5, marker = TRUE, segments = TRUE)
     {
-      super$plot_data(freq)
+      super$plot_data(freq, marker, segments)
     },
 
     plot_data = NULL,
 
-#     plot_ecg = function(freq = 100)
-#     {
-#       dygraphs::dygraph(private$resample_data(freq))
-#     },
+    ## plot_hr
+    ##
+    plot_hr = function(freq = 5, marker = TRUE, segments = TRUE)
+    {
+      # Interpolate equal spaced time series from sequence of interbeat
+      # intervals and convert to heart rate in bpm
+      data <- 60000 / private$interpolate_ibi(self$ibi, freq = freq)
+
+      # Create dygraphs object
+      plot <-
+        dygraph(list(x = seq_along(data) / self$samplerate, y = data)) %>%
+        dyOptions(colors = "#000000", drawGrid = FALSE)
+
+      # Add segments if requested
+      if (segments && !is.na(private$segments))
+      {
+        plot %<>% private$plot_add_segments()
+      }
+
+      # Add marker events if requested
+      if (marker && !is.na(self$marker))
+      {
+        plot %<>% private$plot_add_markers()
+      }
+
+      plot
+    },
 
     ## plot_ibi
     ##
@@ -242,15 +264,8 @@ ECG <- R6Class("ECG",
 
     ## print
     ##
-    print = function()
+    print = function(marker = TRUE, segments = TRUE)
     {
-      # Character representation of the time length of the signal
-      time <-
-        (length(self$data) / self$samplerate) %>%
-        round(2) %>%
-        lubridate::duration() %>%
-        as.character()
-
       cat(
         # Class name
         "<ECG>",
@@ -261,14 +276,30 @@ ECG <- R6Class("ECG",
         # Length of the signal in samples
         "\n  Length:", length(self$data), "samples",
         # Length of the signal (hh:mm:ss)
-        "\n         ", time
+        "\n         ", private$samples_to_string(length(self$data))
       )
-      if (length(self$marker) > 1)
+
+      if (marker && !is.na(self$marker))
       {
         m <- unique(self$marker$name)
         # Sequence of names of markers in 'marker' data frame
         cat(paste("\n  Markers:", paste(m[order(m)], collapse = ", ")))
       }
+
+      if (segments && length(private$segments) > 0)
+      {
+        cat("\n  Segments:")
+
+        for (i in seq_along(private$segments))
+        {
+          x <- private$segments[[i]]
+
+          cat("\n    ", x$name, " @ ", private$samples_to_hms(x$start),
+              ", length: ", private$samples_to_string(x$end - x$start),
+              sep = "")
+        }
+      }
+
       if (length(self$ibi) > 1)
       {
         cat(
@@ -297,6 +328,13 @@ ECG <- R6Class("ECG",
     ## Logical indicating whether interbeat intervals are present or not
     ##
     has_ibi = FALSE,
+
+    ## hr_interpolated
+    ##
+    ## Evenly sampled sequence of heart rate (in bpm), interpolated to the
+    ## same frequency as the original ECG signal
+    ##
+    hr_interpolated = NA,
 
     ## py_is_connected
     ##
@@ -353,7 +391,16 @@ ECG <- R6Class("ECG",
         }
         else
         {
-          private[[name]](private$subset_ibi(.x$start, .x$end), ...)
+          # Requested measure is heart rate
+          if (name == "hr")
+          {
+            private$hr_(.x$start, .x$end)
+          }
+          # Requested measure is heart rate variability
+          else
+          {
+            private[[name]](private$subset_ibi(.x$start, .x$end), ...)
+          }
         }
 
       })
@@ -365,7 +412,7 @@ ECG <- R6Class("ECG",
     ##
     ## @param data numeric vector with sequence of interbeat intervals
     ##
-    hr_ = function(x) { 60000 / mean(x) },
+    hr_ = function(start, end) { mean(private$hr_interpolated[start:end]) },
 
     # HEART RATE VARIABILITY: TIME DOMAIN MEASURES
 
