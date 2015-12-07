@@ -51,6 +51,26 @@ ECG <- R6Class("ECG",
       if (!missing(path)) self$path <- path
     },
 
+    # Extract ------------------------------------------------------------------
+
+    ## extract_hr
+    ##
+    ## Extract a segment of the 'hr_interpolated' field.
+    ##
+    ## @param segment character string; name of the segment to extract
+    ##
+    extract_hr = function(segment)
+    {
+      if (!private$find_segment(segment))
+      {
+        stop(paste("Segment", segment, "not found"))
+      }
+
+      segment <- private$segments[[segment]]
+
+      private$hr_interpolated[segment$start:segment$end]
+    },
+
     # Export / Import ----------------------------------------------------------
 
     ## export_ecg
@@ -83,12 +103,16 @@ ECG <- R6Class("ECG",
                            "_ecg_ibi.txt")
       }
 
+      # Read file
       self$ibi <- scan(filename, what = numeric(), sep = "\n", quiet = TRUE)
 
       private$has_ibi <- TRUE
 
+      # TODO: spline interpolation of ibi
+      #private$hr_interpolated <-
+      #  60000 / private$interpolate_ibi(self$ibi, freq = self$samplerate)
       private$hr_interpolated <-
-        private$interpolate_ibi(self$ibi, freq = self$samplerate)
+        spline(cumsum(self$ibi), 60000 / self$ibi, n = length(self$data))$y
 
       invisible(self)
     },
@@ -102,7 +126,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   heart rate for.
     ##
-    hr = function(segment = NULL) { private$get_measure("hr", segment) },
+    hr = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("hr", segment, aggregate)
+    },
 
     ## nn50
     ##
@@ -112,7 +139,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   nn50 for.
     ##
-    nn50 = function(segment = NULL) { private$get_measure("nn50", segment) },
+    nn50 = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("nn50", segment, aggregate)
+    },
 
     ## pnn50
     ##
@@ -121,7 +151,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   pnn50 for.
     ##
-    pnn50 = function(segment = NULL) { private$get_measure("pnn50", segment) },
+    pnn50 = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("pnn50", segment, aggregate)
+    },
 
     ## nn20
     ##
@@ -131,7 +164,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   nn20 for.
     ##
-    nn20 = function(segment = NULL) { private$get_measure("nn20", segment) },
+    nn20 = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("nn20", segment, aggregate)
+    },
 
     ## pnn20
     ##
@@ -140,7 +176,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   pnn20 for.
     ##
-    pnn20 = function(segment = NULL) { private$get_measure("pnn20", segment) },
+    pnn20 = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("pnn20", segment, aggregate)
+    },
 
     ## sdnn
     ##
@@ -149,7 +188,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   sdnn for.
     ##
-    sdnn = function(segment = NULL) { private$get_measure("sdnn", segment) },
+    sdnn = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("sdnn", segment, aggregate)
+    },
 
     ## rmssd
     ##
@@ -158,7 +200,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   rmssd for.
     ##
-    rmssd = function(segment = NULL) { private$get_measure("rmssd", segment) },
+    rmssd = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("rmssd", segment, aggregate)
+    },
 
     ## sdsd
     ##
@@ -167,7 +212,10 @@ ECG <- R6Class("ECG",
     ## @param segment character string indicating the segment to report the
     ##   sdsd for.
     ##
-    sdsd = function(segment = NULL) { private$get_measure("sdsd", segment) },
+    sdsd = function(segment = NULL, aggregate = TRUE)
+    {
+      private$get_measure("sdsd", segment, aggregate)
+    },
 
     ## vlf
     ##
@@ -175,27 +223,30 @@ ECG <- R6Class("ECG",
     ##
     ## TODO: Arguments for specifying band
     ##
-    vlf = function(segment = NULL, lower = .0033, upper = .04)
+    vlf = function(segment = NULL, lower = .0033, upper = .04, aggregate = TRUE)
     {
-      private$get_measure("vlf", segment, lower = lower, upper = upper)
+      private$get_measure("vlf", segment, aggregate, lower = lower,
+                          upper = upper)
     },
 
     ## lf
     ##
     ## Low frequency bands
     ##
-    lf = function(segment = NULL, lower = .04, upper = .15)
+    lf = function(segment = NULL, lower = .04, upper = .15, aggregate = TRUE)
     {
-      private$get_measure("lf", segment, lower = lower, upper = upper)
+      private$get_measure("lf", segment, aggregate, lower = lower,
+                          upper = upper)
     },
 
     ## hf
     ##
     ## High frequency bands
     ##
-    hf = function(segment = NULL, lower = .15, upper = .4)
+    hf = function(segment = NULL, lower = .15, upper = .4, aggregate = TRUE)
     {
-      private$get_measure("hf", segment, lower = lower, upper = upper)
+      private$get_measure("hf", segment, aggregate, lower = lower,
+                        upper = upper)
     },
 
     # Plots --------------------------------------------------------------------
@@ -208,7 +259,7 @@ ECG <- R6Class("ECG",
     ##   sample. The lower the value, the higher the plotting perfomance but the
     ##   lower the signal accuracy.
     ##
-    plot_ecg = function(freq = 5, marker = TRUE, segments = TRUE)
+    plot_ecg = function(freq = 100, marker = TRUE, segments = TRUE)
     {
       super$plot_data(freq, marker, segments)
     },
@@ -221,23 +272,26 @@ ECG <- R6Class("ECG",
     {
       # Interpolate equal spaced time series from sequence of interbeat
       # intervals and convert to heart rate in bpm
-      data <- 60000 / private$interpolate_ibi(self$ibi, freq = freq)
+      #data <- 60000 / private$interpolate_ibi(self$ibi, freq = freq)
+      # TODO: resample data here. Change function to take data as x parameter
+      data <- private$resample_data(private$hr_interpolated, freq)
 
       # Create dygraphs object
       plot <-
-        dygraph(list(x = seq_along(data) / self$samplerate, y = data)) %>%
+        dygraph(list(x = data$x, y = data$y)) %>%
         dyOptions(colors = "#000000", drawGrid = FALSE)
 
       # Add segments if requested
-      if (segments && !is.na(private$segments))
+      if (segments && length(private$segments) > 0)
       {
         plot %<>% private$plot_add_segments()
       }
 
       # Add marker events if requested
+      # TODO: produces an error
       if (marker && !is.na(self$marker))
       {
-        plot %<>% private$plot_add_markers()
+        plot %<>% private$plot_add_marker()
       }
 
       plot
@@ -347,7 +401,7 @@ ECG <- R6Class("ECG",
     ## @param name character string
     ## @param segment character string
     ##
-    get_measure = function(name, segment, ...)
+    get_measure = function(name, segment, aggregate, ...)
     {
       # Add underscore to function name, because all private parameter functions
       # end with one. This is later used to call the parameter function
@@ -366,6 +420,9 @@ ECG <- R6Class("ECG",
         return(private[[name]](self$ibi))
       }
 
+      # TODO: check if segment exists
+      #if (!private$find_segment(name)) private$error_segment_not_found()
+
       # Multiple segments
       if (grepl("\\*", segment))
       {
@@ -373,17 +430,17 @@ ECG <- R6Class("ECG",
         pattern <- sub("_?\\*$", "_\\.\\*", segment)
 
         # Extract the requested segments
-        segments <- self$segments[grep(pattern, names(self$segments))]
+        segments <- private$segments[grep(pattern, names(private$segments))]
       }
       # Single segment
       else
       {
         # Extract the requested segment
-        segments <- self$segments[[segment]]
+        segments <- private$segments[segment]
       }
 
       # Calculate the parameter 'name' for all segments
-      sapply(segments, function(.x) {
+      measure <- sapply(segments, function(.x) {
 
         if (any(is.na(.x)))
         {
@@ -392,7 +449,7 @@ ECG <- R6Class("ECG",
         else
         {
           # Requested measure is heart rate
-          if (name == "hr")
+          if (name == "hr_")
           {
             private$hr_(.x$start, .x$end)
           }
@@ -404,6 +461,9 @@ ECG <- R6Class("ECG",
         }
 
       })
+
+      # Return either aggregated measure or measures as named vector
+      if (aggregate) mean(measure) else measure
     },
 
     # HEART RATE
@@ -493,7 +553,7 @@ ECG <- R6Class("ECG",
         scaling = scaling
       ))
 
-      # Get results
+      # Retrieve results from Python
       f <- pyGet(sprintf('list(__R__.namespace[%i])', wout[[1]]$id))
       pxx <- pyGet(sprintf('list(__R__.namespace[%i])', wout[[2]]$id))
 

@@ -62,7 +62,7 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     segment_marker = function(from = NULL, to = NULL, name, check = TRUE)
     {
       # Check if there is already a segment with this name
-      if (private$find_segment(name)) private$error_segment(name)
+      if (private$find_segment(name)) private$error_segment_exists(name)
 
       # Check if markers 'from' and 'to' are present in marker vector
       if (check)
@@ -127,11 +127,27 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       private$create_segment(from, to, name)
     },
 
+    # Markers ------------------------------------------------------------------
+
+    ## add_marker
+    ##
+    ## Add a single marker
+    ##
+    ## @param name character string; name of the marker.
+    ## @param position numeric; position of the marker (in samples).
+    ##
     add_marker = function(name, position)
     {
       self$marker %<>% bind_rows(data_frame(name = name, position = position))
     },
 
+    ## delete_marker
+    ##
+    ## Delete one or several marker
+    ##
+    ## @param x character vector indicating the name(s) of the markers to
+    ##   remove
+    ##
     delete_marker = function(x)
     {
       for(i in seq_along(x))
@@ -140,6 +156,14 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       }
     },
 
+    # Extraction ---------------------------------------------------------------
+
+    ## extract
+    ##
+    ## Extract a segment of the 'data' field.
+    ##
+    ## @param segment character string; name of the segment to extract
+    ##
     extract = function(segment)
     {
       if (!private$find_segment(segment))
@@ -200,7 +224,7 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     plot_data = function(freq = 5, marker = TRUE, segments = TRUE)
     {
       # Downsample data for improved plotting performance
-      data <- private$resample_data(freq)
+      data <- private$resample_data(self$data, freq)
 
       # Create dygraphs object
       plot <-
@@ -261,7 +285,7 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     ## Searches for a segment with a given name
     ##
-    ## # TODO: Support whitespace character
+    ## # TODO: Support wildcard character
     ##
     ## @param name character string indicating the segment to search for
     ## @return boolean \code{TRUE} if the segment exists or \code{FALSE} if not
@@ -271,16 +295,28 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
       name %in% names(private$segments)
     },
 
-    ## error_segment
+    ## error_segment_exists
     ##
     ## Throws an error that a segment already exists.
     ##
     ## @param character string. The name of a segment
     ##
-    error_segment = function(name)
+    error_segment_exists = function(name)
     {
       stop(paste(if (!is.na(self$name)) sprintf("%s:", self$name), "Segment",
                  name, "already exists"), call. = FALSE)
+    },
+
+    ## error_segment_not_found
+    ##
+    ## Throws an error that a segment does not exist.
+    ##
+    ## @param character string. The name of a segment
+    ##
+    error_segment_not_found = function(name)
+    {
+      stop(paste(if (!is.na(self$name)) sprintf("%s:", self$name), "Segment",
+                 name, "does not exist"), call. = FALSE)
     },
 
     ## create_segment
@@ -355,12 +391,12 @@ PHYR6_BASE <- R6Class("PHYR6_BASE",
     ##
     ## @param freq numeric indicating the new sampling frequency in Hertz
     ##
-    resample_data = function(freq = 5)
+    resample_data = function(x, freq = 5)
     {
       # Calculate number of data points to plot
-      n <- round(length(self$data) / self$samplerate * freq)
+      n <- round(length(x) / self$samplerate * freq)
 
-      approx(seq_along(self$data) / self$samplerate, self$data, n = n)
+      approx(seq_along(x) / self$samplerate, x, n = n)
     },
 
     ## filter_template
