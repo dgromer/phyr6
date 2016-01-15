@@ -63,7 +63,8 @@ ECG <- R6Class("ECG",
     {
       if (!private$find_segment(segment))
       {
-        stop(paste("Segment", segment, "not found"))
+        #stop(paste("Segment", segment, "not found"))
+        private$error_segment_not_found(segment)
       }
 
       segment <- private$segments[[segment]]

@@ -145,7 +145,7 @@ EDA <- R6Class("EDA",
       }
 
       # TODO: search if segment(s) exist
-      if (!private$find_segment(name)) private$error_segment_not_found()
+      #if (!private$find_segment(name)) private$error_segment_not_found(name)
 
       # Multiple segments
       if (grepl("\\*", segment))
