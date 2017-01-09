@@ -58,18 +58,57 @@ ECG <- R6Class("ECG",
     ## Extract a segment of the 'hr_interpolated' field.
     ##
     ## @param segment character string; name of the segment to extract
+    ## @param latency numeric indicating the number of milliseconds to cut
+    ##   before (negative) or after (negative) the segment starts
     ##
-    extract_hr = function(segment)
+    extract_hr = function(segment, latency = 0)
     {
-      if (!private$find_segment(segment))
+      if (latency != 0)
       {
-        #stop(paste("Segment", segment, "not found"))
-        private$error_segment_not_found(segment)
+        latency <- latency / 1000 * self$samplerate
       }
 
-      segment <- private$segments[[segment]]
+      # TODO: check names for single and for muliple segments
+#       if (!private$find_segment(segment))
+#       {
+#         #stop(paste("Segment", segment, "not found"))
+#         private$error_segment_not_found(segment)
+#       }
 
-      private$hr_interpolated[segment$start:segment$end]
+      # Multiple segments
+      if (grepl("\\*", segment))
+      {
+        # Regular expression for finding the requested segments
+        pattern <- sub("_?\\*$", "_\\.\\*", segment)
+
+        # Extract the requested segments
+        segments <- private$segments[grep(pattern, names(private$segments))]
+      }
+      # Single segment
+      else
+      {
+        # Extract the requested segment
+        segments <- private$segments[segment]
+      }
+
+      #private$hr_interpolated[segment$start:segment$end]
+
+      # Extract interpolated hr for all segments
+      lst <- sapply(segments, function(.x) {
+
+        if (any(is.na(.x)))
+        {
+          NA
+        }
+        else
+        {
+          private$hr_interpolated[(.x$start + latency):.x$end]
+        }
+
+      })
+
+      # TODO: return as list or aggregate
+      lst
     },
 
     # Export / Import ----------------------------------------------------------
@@ -126,10 +165,14 @@ ECG <- R6Class("ECG",
     ##
     ## @param segment character string indicating the segment to report the
     ##   heart rate for.
+    ## @param aggregate logical indicating whether to return hear rate for each
+    ##   segment separately or an aggregated summary (mean)
+    ## @param z logical indicating whether to apply z-standardisation to the
+    ##   heart rate signal before calculating the segment mean
     ##
-    hr = function(segment = NULL, aggregate = TRUE)
+    hr = function(segment = NULL, aggregate = TRUE, z = FALSE)
     {
-      private$get_measure("hr", segment, aggregate)
+      private$get_measure("hr", segment, aggregate, z = z)
     },
 
     ## nn50
@@ -452,7 +495,7 @@ ECG <- R6Class("ECG",
           # Requested measure is heart rate
           if (name == "hr_")
           {
-            private$hr_(.x$start, .x$end)
+            private$hr_(.x$start, .x$end, ...)
           }
           # Requested measure is heart rate variability
           else
@@ -473,7 +516,18 @@ ECG <- R6Class("ECG",
     ##
     ## @param data numeric vector with sequence of interbeat intervals
     ##
-    hr_ = function(start, end) { mean(private$hr_interpolated[start:end]) },
+    hr_ = function(start, end, z)
+    {
+      if (!z)
+      {
+        mean(private$hr_interpolated[start:end])
+      }
+      else
+      {
+        mean(scale(private$hr_interpolated)[, 1][start:end])
+      }
+
+    },
 
     # HEART RATE VARIABILITY: TIME DOMAIN MEASURES
 
